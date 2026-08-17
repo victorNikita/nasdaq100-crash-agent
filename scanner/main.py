@@ -290,11 +290,13 @@ for ticker in NASDAQ_100:
 
             "Drawdown": drawdown,
 
-            "1M": return_1m,
+"5D": return_5d,
 
-            "3M": return_3m,
+"1M": return_1m,
 
-            "RSI": rsi,
+"3M": return_3m,
+
+"RSI": rsi,
 
             "VolRatio": volume_ratio,
 
@@ -382,9 +384,8 @@ print(
     )
 )
 
-
 # ----------------------------------------------------------
-# TOP 3
+# TOP 3 CRASH BUYING CANDIDATES
 # ----------------------------------------------------------
 
 print()
@@ -392,24 +393,158 @@ print("=" * 80)
 print("TOP 3 CRASH BUYING CANDIDATES")
 print("=" * 80)
 
-for rank, (_, row) in enumerate(df.head(3).iterrows(), start=1):
+
+def generate_reasons(row):
+
+    reasons = []
+
+    # Drawdown
+    if row["Drawdown"] <= -50:
+        reasons.append(
+            "Very large decline from the 52-week high"
+        )
+    elif row["Drawdown"] <= -30:
+        reasons.append(
+            "Large decline from the 52-week high"
+        )
+    elif row["Drawdown"] <= -20:
+        reasons.append(
+            "Significant decline from the 52-week high"
+        )
+
+    # RSI
+    if row["RSI"] <= 25:
+        reasons.append(
+            "Extremely oversold RSI"
+        )
+    elif row["RSI"] <= 30:
+        reasons.append(
+            "Strongly oversold RSI"
+        )
+    elif row["RSI"] <= 35:
+        reasons.append(
+            "Oversold RSI"
+        )
+
+    # 1 month
+    if row["1M"] <= -20:
+        reasons.append(
+            "Very large 1-month decline"
+        )
+    elif row["1M"] <= -10:
+        reasons.append(
+            "Significant 1-month decline"
+        )
+
+    # 3 month
+    if row["3M"] <= -30:
+        reasons.append(
+            "Very large 3-month decline"
+        )
+    elif row["3M"] <= -20:
+        reasons.append(
+            "Significant 3-month decline"
+        )
+
+    # Volume
+    if row["VolRatio"] >= 2:
+        reasons.append(
+            "Unusually high trading volume"
+        )
+    elif row["VolRatio"] >= 1.5:
+        reasons.append(
+            "Above-average trading volume"
+        )
+
+    # Stabilization
+    if row["5D"] >= 0:
+        reasons.append(
+            "Recent 5-day price action shows stabilization"
+        )
+    elif row["5D"] >= -2:
+        reasons.append(
+            "Recent selling pressure is slowing"
+        )
+
+    if not reasons:
+        reasons.append(
+            "Strongest overall crash-buying score in the Nasdaq-100"
+        )
+
+    return reasons
+
+
+# ----------------------------------------------------------
+# ADD 5-DAY RETURN TO RESULTS
+# ----------------------------------------------------------
+
+if "5D" not in df.columns:
+
+    df["5D"] = 0.0
+
+
+# Recalculate ranking after adding the 5-day data
+df = df.sort_values(
+    "Score",
+    ascending=False
+)
+
+
+top3 = df.head(3)
+
+
+for rank, (_, row) in enumerate(
+    top3.iterrows(),
+    start=1
+):
 
     print()
+
     print(f"#{rank} {row['Ticker']}")
 
-    print(f"Crash Buying Score: {row['Score']:.0f}/100")
+    print(
+        f"Crash Buying Score: "
+        f"{row['Score']:.0f}/100"
+    )
 
-    print(f"Current Price: ${row['Price']:.2f}")
+    print(
+        f"Current Price: "
+        f"${row['Price']:.2f}"
+    )
 
-    print(f"52W Drawdown: {row['Drawdown']:.2f}%")
+    print(
+        f"52W Drawdown: "
+        f"{row['Drawdown']:.2f}%"
+    )
 
-    print(f"1 Month: {row['1M']:.2f}%")
+    print(
+        f"1 Month: "
+        f"{row['1M']:.2f}%"
+    )
 
-    print(f"3 Months: {row['3M']:.2f}%")
+    print(
+        f"3 Months: "
+        f"{row['3M']:.2f}%"
+    )
 
-    print(f"RSI: {row['RSI']:.1f}")
+    print(
+        f"RSI: "
+        f"{row['RSI']:.1f}"
+    )
 
-    print(f"Volume vs 20D Average: {row['VolRatio']:.2f}x")
+    print(
+        f"Volume vs 20D Average: "
+        f"{row['VolRatio']:.2f}x"
+    )
+
+    print()
+
+    print("WHY THIS STOCK WAS SELECTED:")
+
+    reasons = generate_reasons(row)
+
+    for reason in reasons:
+        print(f"  ✓ {reason}")
 
 
 print()
