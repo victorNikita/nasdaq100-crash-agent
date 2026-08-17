@@ -1,10 +1,10 @@
-name: Test Nasdaq Crash Agent
+name: Nasdaq-100 Crash Agent
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  scan:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Test Python
+      - name: Run Nasdaq-100 scanner
         run: |
-          python --version
-          echo "Nasdaq-100 Crash Agent is running!"
+          python scanner/main.py
