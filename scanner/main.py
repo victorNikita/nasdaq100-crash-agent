@@ -643,3 +643,154 @@ print()
 print("=" * 80)
 print("STAGE 5 FILTER COMPLETED")
 print("=" * 80)
+
+# ----------------------------------------------------------
+# EMAIL ALERT CONTENT
+# ----------------------------------------------------------
+
+email_lines = []
+
+email_lines.append(
+    "NASDAQ-100 CRASH BUYING ALERT"
+)
+
+email_lines.append(
+    "=" * 60
+)
+
+email_lines.append(
+    f"Scan date: {datetime.now().strftime('%Y-%m-%d')}"
+)
+
+email_lines.append("")
+
+if len(opportunities) > 0:
+
+    email_lines.append(
+        "STRONG CRASH-BUYING OPPORTUNITY FOUND"
+    )
+
+    email_lines.append("")
+
+    email_lines.append(
+        "Top candidates from the Nasdaq-100:"
+    )
+
+    email_lines.append("")
+
+    for rank, (_, row) in enumerate(
+        top3.iterrows(),
+        start=1
+    ):
+
+        status = (
+            "PASS"
+            if is_strong_opportunity(row)
+            else "WATCH"
+        )
+
+        email_lines.append(
+            f"#{rank} {row['Ticker']} - {status}"
+        )
+
+        email_lines.append(
+            f"Crash Buying Score: "
+            f"{row['Score']:.0f}/100"
+        )
+
+        email_lines.append(
+            f"Current Price: "
+            f"${row['Price']:.2f}"
+        )
+
+        email_lines.append(
+            f"52W Drawdown: "
+            f"{row['Drawdown']:.2f}%"
+        )
+
+        email_lines.append(
+            f"1 Month: "
+            f"{row['1M']:.2f}%"
+        )
+
+        email_lines.append(
+            f"3 Months: "
+            f"{row['3M']:.2f}%"
+        )
+
+        email_lines.append(
+            f"RSI: "
+            f"{row['RSI']:.1f}"
+        )
+
+        email_lines.append(
+            f"Volume vs 20D Average: "
+            f"{row['VolRatio']:.2f}x"
+        )
+
+        email_lines.append("")
+
+        email_lines.append(
+            "Why selected:"
+        )
+
+        reasons = generate_reasons(row)
+
+        for reason in reasons:
+
+            email_lines.append(
+                f"  - {reason}"
+            )
+
+        email_lines.append("")
+
+        email_lines.append(
+            "-" * 60
+        )
+
+        email_lines.append("")
+
+else:
+
+    email_lines.append(
+        "NO STRONG CRASH-BUYING OPPORTUNITY TODAY"
+    )
+
+    email_lines.append("")
+
+    email_lines.append(
+        "No Top-3 candidate passed the minimum "
+        "crash-buying conditions."
+    )
+
+
+email_lines.append("")
+
+email_lines.append(
+    "IMPORTANT:"
+)
+
+email_lines.append(
+    "This is an automated screening signal, "
+    "not financial advice or an automatic buy instruction."
+)
+
+email_lines.append(
+    "Further fundamental analysis is required before "
+    "making any investment decision."
+)
+
+
+EMAIL_SUBJECT = (
+    "NASDAQ-100 Crash Buying Alert - "
+    + datetime.now().strftime("%Y-%m-%d")
+)
+
+EMAIL_BODY = "\n".join(email_lines)
+
+print()
+print("=" * 80)
+print("EMAIL ALERT PREVIEW")
+print("=" * 80)
+
+print(EMAIL_BODY)
