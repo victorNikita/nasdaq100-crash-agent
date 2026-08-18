@@ -1251,3 +1251,243 @@ print("=" * 80)
 print("STAGE 6 FUNDAMENTAL ANALYSIS COMPLETED")
 print("=" * 80)
 
+# ----------------------------------------------------------
+# STAGE 7 - COMBINED CRASH BUYING SCORE
+# ----------------------------------------------------------
+
+print()
+print("=" * 80)
+print("STAGE 7 - COMBINED CRASH BUYING SCORE")
+print("=" * 80)
+
+
+# ----------------------------------------------------------
+# NORMALISE FUNDAMENTAL SCORE
+# ----------------------------------------------------------
+#
+# Fundamental score maximum = 40
+# Convert it to a 100-point scale.
+#
+
+df["FundamentalScore100"] = (
+    df["FundamentalScore"] / 40
+) * 100
+
+
+# ----------------------------------------------------------
+# COMBINE TECHNICAL + FUNDAMENTAL SCORES
+# ----------------------------------------------------------
+#
+# Technical weight     = 60%
+# Fundamental weight   = 40%
+#
+
+df["FinalScore"] = (
+    df["Score"] * 0.60
+    +
+    df["FundamentalScore100"] * 0.40
+)
+
+
+# ----------------------------------------------------------
+# FUNDAMENTAL RISK FLAG
+# ----------------------------------------------------------
+
+def fundamental_risk(row):
+
+    score = row["FundamentalScore"]
+
+    revenue = row["RevenueGrowth"]
+
+    earnings = row["EarningsGrowth"]
+
+    fcf = row["FCF"]
+
+    # Very weak fundamentals
+    if score < 15:
+
+        return "HIGH FUNDAMENTAL RISK"
+
+    # Deteriorating revenue and earnings
+    if (
+        pd.notna(revenue)
+        and pd.notna(earnings)
+        and revenue < 0
+        and earnings < 0
+    ):
+
+        return "FUNDAMENTAL DETERIORATION"
+
+    # Negative free cash flow
+    if (
+        pd.notna(fcf)
+        and fcf < 0
+        and score < 25
+    ):
+
+        return "CASH FLOW RISK"
+
+    return "HEALTHY / ACCEPTABLE"
+
+
+df["FundamentalRisk"] = df.apply(
+    fundamental_risk,
+    axis=1
+)
+
+
+# ----------------------------------------------------------
+# SORT BY FINAL SCORE
+# ----------------------------------------------------------
+
+df = df.sort_values(
+    "FinalScore",
+    ascending=False
+)
+
+
+# ----------------------------------------------------------
+# DISPLAY COMBINED RANKING
+# ----------------------------------------------------------
+
+print()
+print(
+    "FINAL NASDAQ-100 CRASH BUYING RANKING"
+)
+
+print()
+
+display_columns = [
+    "Ticker",
+    "Score",
+    "FundamentalScore",
+    "FinalScore",
+    "Drawdown",
+    "RSI",
+    "RevenueGrowth",
+    "EarningsGrowth",
+    "FundamentalRisk"
+]
+
+
+print(
+    df[display_columns].head(10).to_string(
+        index=False,
+
+        formatters={
+
+            "Score":
+                "{:.0f}".format,
+
+            "FundamentalScore":
+                "{:.0f}".format,
+
+            "FinalScore":
+                "{:.1f}".format,
+
+            "Drawdown":
+                "{:.2f}%".format,
+
+            "RSI":
+                "{:.1f}".format,
+
+            "RevenueGrowth":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"{x:.1f}%",
+
+            "EarningsGrowth":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"{x:.1f}%"
+
+        }
+    )
+)
+
+
+# ----------------------------------------------------------
+# FINAL TOP 3
+# ----------------------------------------------------------
+
+final_top3 = df.head(3)
+
+
+print()
+print("=" * 80)
+print("FINAL TOP 3 CRASH BUYING OPPORTUNITIES")
+print("=" * 80)
+
+
+for rank, (_, row) in enumerate(
+    final_top3.iterrows(),
+    start=1
+):
+
+    print()
+
+    print(
+        f"#{rank} {row['Ticker']}"
+    )
+
+    print(
+        f"Final Crash Buying Score: "
+        f"{row['FinalScore']:.1f}/100"
+    )
+
+    print(
+        f"Technical Score: "
+        f"{row['Score']:.0f}/100"
+    )
+
+    print(
+        f"Fundamental Score: "
+        f"{row['FundamentalScore']:.0f}/40"
+    )
+
+    print(
+        f"Current Price: "
+        f"${row['Price']:.2f}"
+    )
+
+    print(
+        f"52W Drawdown: "
+        f"{row['Drawdown']:.2f}%"
+    )
+
+    print(
+        f"RSI: "
+        f"{row['RSI']:.1f}"
+    )
+
+    print(
+        f"Revenue Growth: "
+        + (
+            "N/A"
+            if pd.isna(row["RevenueGrowth"])
+            else f"{row['RevenueGrowth']:.1f}%"
+        )
+    )
+
+    print(
+        f"Earnings Growth: "
+        + (
+            "N/A"
+            if pd.isna(row["EarningsGrowth"])
+            else f"{row['EarningsGrowth']:.1f}%"
+        )
+    )
+
+    print(
+        f"Fundamental Assessment: "
+        f"{row['FundamentalRisk']}"
+    )
+
+
+print()
+print("=" * 80)
+print("STAGE 7 COMPLETED")
+print("=" * 80)
+
