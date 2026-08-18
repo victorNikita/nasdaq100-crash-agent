@@ -547,7 +547,99 @@ for rank, (_, row) in enumerate(
         print(f"  ✓ {reason}")
 
 
+# ----------------------------------------------------------
+# STAGE 5 - OPPORTUNITY FILTER
+# ----------------------------------------------------------
+
 print()
 print("=" * 80)
-print("STAGE 4 SCAN COMPLETED")
+print("STAGE 5 - CRASH BUYING OPPORTUNITY FILTER")
+print("=" * 80)
+
+# Minimum requirements for a strong crash-buying opportunity
+MIN_SCORE = 55
+MIN_DRAWDOWN = -20
+MAX_RSI = 40
+
+
+def is_strong_opportunity(row):
+
+    score_ok = row["Score"] >= MIN_SCORE
+
+    drawdown_ok = row["Drawdown"] <= MIN_DRAWDOWN
+
+    rsi_ok = row["RSI"] <= MAX_RSI
+
+    # Require at least the score and drawdown conditions.
+    # RSI is an additional confirmation rather than an absolute requirement.
+    return score_ok and drawdown_ok
+
+
+# Check the Top 3
+opportunities = []
+
+for _, row in top3.iterrows():
+
+    if is_strong_opportunity(row):
+        opportunities.append(row)
+
+
+print()
+
+if len(opportunities) > 0:
+
+    print("🟢 STRONG CRASH-BUYING OPPORTUNITY FOUND")
+
+    print()
+    print(
+        f"{len(opportunities)} of the Top 3 candidates "
+        "passed the opportunity filter."
+    )
+
+    print()
+
+    for rank, (_, row) in enumerate(
+        top3.iterrows(),
+        start=1
+    ):
+
+        status = (
+            "PASS"
+            if is_strong_opportunity(row)
+            else "WATCH"
+        )
+
+        print(
+            f"#{rank} {row['Ticker']} "
+            f"- {status}"
+        )
+
+        print(
+            f"   Score: {row['Score']:.0f}/100"
+        )
+
+        print(
+            f"   Drawdown: {row['Drawdown']:.2f}%"
+        )
+
+        print(
+            f"   RSI: {row['RSI']:.1f}"
+        )
+
+        print()
+
+else:
+
+    print("⚪ NO STRONG CRASH-BUYING OPPORTUNITY TODAY")
+
+    print()
+    print(
+        "The Nasdaq-100 was scanned, but none of "
+        "the Top 3 candidates passed the minimum "
+        "crash-buying conditions."
+    )
+
+print()
+print("=" * 80)
+print("STAGE 5 FILTER COMPLETED")
 print("=" * 80)
