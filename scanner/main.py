@@ -794,3 +794,460 @@ print("EMAIL ALERT PREVIEW")
 print("=" * 80)
 
 print(EMAIL_BODY)
+
+# ----------------------------------------------------------
+# STAGE 6 - FUNDAMENTAL ANALYSIS
+# ----------------------------------------------------------
+
+print()
+print("=" * 80)
+print("STAGE 6 - FUNDAMENTAL ANALYSIS")
+print("=" * 80)
+
+print()
+print("Checking financial health of the leading crash candidates...")
+print()
+
+
+def safe_float(value):
+    """Safely convert a value to float."""
+
+    try:
+        if pd.isna(value):
+            return None
+
+        return float(value)
+
+    except Exception:
+        return None
+
+
+def get_latest_value(statement, possible_names):
+    """
+    Find the latest available value from a financial statement.
+
+    Different companies sometimes use slightly different
+    accounting labels, so we try several possibilities.
+    """
+
+    if statement is None or statement.empty:
+        return None
+
+    for name in possible_names:
+
+        if name in statement.index:
+
+            series = statement.loc[name].dropna()
+
+            if len(series) > 0:
+
+                return safe_float(series.iloc[0])
+
+    return None
+
+
+def get_previous_value(statement, possible_names):
+    """Find the second-most-recent available value."""
+
+    if statement is None or statement.empty:
+        return None
+
+    for name in possible_names:
+
+        if name in statement.index:
+
+            series = statement.loc[name].dropna()
+
+            if len(series) > 1:
+
+                return safe_float(series.iloc[1])
+
+    return None
+
+
+def calculate_growth(current, previous):
+    """Calculate percentage growth."""
+
+    if current is None or previous is None:
+        return None
+
+    if previous == 0:
+        return None
+
+    return ((current - previous) / abs(previous)) * 100
+
+
+def fundamental_score_revenue(growth):
+    """Revenue growth score: maximum 10 points."""
+
+    if growth is None:
+        return 0
+
+    if growth >= 20:
+        return 10
+    elif growth >= 10:
+        return 8
+    elif growth >= 5:
+        return 6
+    elif growth >= 0:
+        return 4
+    elif growth >= -5:
+        return 2
+    else:
+        return 0
+
+
+def fundamental_score_earnings(growth):
+    """Earnings growth score: maximum 10 points."""
+
+    if growth is None:
+        return 0
+
+    if growth >= 25:
+        return 10
+    elif growth >= 15:
+        return 8
+    elif growth >= 5:
+        return 6
+    elif growth >= 0:
+        return 4
+    elif growth >= -10:
+        return 2
+    else:
+        return 0
+
+
+def fundamental_score_fcf(fcf):
+    """Free cash flow score: maximum 10 points."""
+
+    if fcf is None:
+        return 0
+
+    if fcf > 0:
+        return 10
+
+    return 0
+
+
+def fundamental_score_balance_sheet(cash, debt):
+    """Balance-sheet score: maximum 10 points."""
+
+    if cash is None or debt is None:
+        return 0
+
+    if debt <= 0:
+        return 10
+
+    ratio = cash / debt
+
+    if ratio >= 2:
+        return 10
+    elif ratio >= 1:
+        return 8
+    elif ratio >= 0.5:
+        return 5
+    elif ratio >= 0.25:
+        return 3
+    else:
+        return 0
+
+# ----------------------------------------------------------
+# ANALYSE TOP TECHNICAL CANDIDATES
+# ----------------------------------------------------------
+
+# We don't need to download detailed financial statements
+# for every Nasdaq-100 company.
+#
+# First identify the strongest technical candidates,
+# then perform deeper fundamental analysis on those stocks.
+
+technical_candidates = df.head(10).copy()
+
+fundamental_results = []
+
+
+for _, row in technical_candidates.iterrows():
+
+    ticker = row["Ticker"]
+
+    print()
+    print(f"Analysing fundamentals: {ticker}")
+
+    try:
+
+        company = yf.Ticker(ticker)
+
+        income_statement = company.income_stmt
+
+        balance_sheet = company.balance_sheet
+
+        cash_flow = company.cashflow
+
+        # --------------------------------------------------
+        # REVENUE
+        # --------------------------------------------------
+
+        revenue_current = get_latest_value(
+            income_statement,
+            [
+                "Total Revenue",
+                "Operating Revenue"
+            ]
+        )
+
+        revenue_previous = get_previous_value(
+            income_statement,
+            [
+                "Total Revenue",
+                "Operating Revenue"
+            ]
+        )
+
+        revenue_growth = calculate_growth(
+            revenue_current,
+            revenue_previous
+        )
+
+        # --------------------------------------------------
+        # NET INCOME
+        # --------------------------------------------------
+
+        earnings_current = get_latest_value(
+            income_statement,
+            [
+                "Net Income",
+                "Net Income Common Stockholders"
+            ]
+        )
+
+        earnings_previous = get_previous_value(
+            income_statement,
+            [
+                "Net Income",
+                "Net Income Common Stockholders"
+            ]
+        )
+
+        earnings_growth = calculate_growth(
+            earnings_current,
+            earnings_previous
+        )
+
+        # --------------------------------------------------
+        # FREE CASH FLOW
+        # --------------------------------------------------
+
+        operating_cash_flow = get_latest_value(
+            cash_flow,
+            [
+                "Operating Cash Flow",
+                "Total Cash From Operating Activities"
+            ]
+        )
+
+        capital_expenditure = get_latest_value(
+            cash_flow,
+            [
+                "Capital Expenditure",
+                "Capital Expenditures"
+            ]
+        )
+
+        if (
+            operating_cash_flow is not None
+            and capital_expenditure is not None
+        ):
+
+            # Capital expenditure is normally negative
+            # in the cash-flow statement.
+
+            free_cash_flow = (
+                operating_cash_flow
+                + capital_expenditure
+            )
+
+        else:
+
+            free_cash_flow = None
+
+        # --------------------------------------------------
+        # CASH
+        # --------------------------------------------------
+
+        cash = get_latest_value(
+            balance_sheet,
+            [
+                "Cash Cash Equivalents And Short Term Investments",
+                "Cash And Cash Equivalents",
+                "Cash Financial"
+            ]
+        )
+
+        # --------------------------------------------------
+        # TOTAL DEBT
+        # --------------------------------------------------
+
+        debt = get_latest_value(
+            balance_sheet,
+            [
+                "Total Debt",
+                "Long Term Debt And Capital Lease Obligation",
+                "Long Term Debt"
+            ]
+        )
+
+        # --------------------------------------------------
+        # SCORE
+        # --------------------------------------------------
+
+        revenue_score = fundamental_score_revenue(
+            revenue_growth
+        )
+
+        earnings_score = fundamental_score_earnings(
+            earnings_growth
+        )
+
+        fcf_score = fundamental_score_fcf(
+            free_cash_flow
+        )
+
+        balance_score = fundamental_score_balance_sheet(
+            cash,
+            debt
+        )
+
+        fundamental_score = (
+            revenue_score
+            + earnings_score
+            + fcf_score
+            + balance_score
+        )
+
+        fundamental_results.append({
+
+            "Ticker": ticker,
+
+            "RevenueGrowth": revenue_growth,
+
+            "EarningsGrowth": earnings_growth,
+
+            "FCF": free_cash_flow,
+
+            "Cash": cash,
+
+            "Debt": debt,
+
+            "FundamentalScore": fundamental_score
+
+        })
+
+    except Exception as e:
+
+        print(
+            f"{ticker}: fundamental analysis error - {e}"
+        )
+
+        fundamental_results.append({
+
+            "Ticker": ticker,
+
+            "RevenueGrowth": None,
+
+            "EarningsGrowth": None,
+
+            "FCF": None,
+
+            "Cash": None,
+
+            "Debt": None,
+
+            "FundamentalScore": 0
+
+        })
+
+
+# ----------------------------------------------------------
+# MERGE FUNDAMENTAL DATA WITH TECHNICAL DATA
+# ----------------------------------------------------------
+
+fundamental_df = pd.DataFrame(
+    fundamental_results
+)
+
+df = df.merge(
+    fundamental_df,
+    on="Ticker",
+    how="left"
+)
+
+
+print()
+print("=" * 80)
+print("FUNDAMENTAL ANALYSIS RESULTS")
+print("=" * 80)
+
+
+fundamental_display = df[
+    [
+        "Ticker",
+        "Score",
+        "FundamentalScore",
+        "RevenueGrowth",
+        "EarningsGrowth",
+        "FCF",
+        "Cash",
+        "Debt"
+    ]
+].copy()
+
+
+print(
+    fundamental_display.to_string(
+        index=False,
+        formatters={
+
+            "Score": "{:.0f}".format,
+
+            "FundamentalScore": "{:.0f}".format,
+
+            "RevenueGrowth":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"{x:.1f}%",
+
+            "EarningsGrowth":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"{x:.1f}%",
+
+            "FCF":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"${x:,.0f}",
+
+            "Cash":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"${x:,.0f}",
+
+            "Debt":
+                lambda x:
+                "N/A"
+                if pd.isna(x)
+                else f"${x:,.0f}"
+
+        }
+    )
+)
+
+
+print()
+print("=" * 80)
+print("STAGE 6 FUNDAMENTAL ANALYSIS COMPLETED")
+print("=" * 80)
+
