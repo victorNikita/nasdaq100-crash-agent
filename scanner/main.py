@@ -1491,3 +1491,333 @@ print("=" * 80)
 print("STAGE 7 COMPLETED")
 print("=" * 80)
 
+# ----------------------------------------------------------
+# STAGE 8 - AI-STYLE CANDIDATE EXPLANATION
+# ----------------------------------------------------------
+
+print()
+print("=" * 80)
+print("STAGE 8 - CANDIDATE EXPLANATIONS")
+print("=" * 80)
+
+
+def create_candidate_explanation(row):
+
+    strengths = []
+    risks = []
+
+    # ------------------------------------------------------
+    # TECHNICAL STRENGTHS
+    # ------------------------------------------------------
+
+    if row["Drawdown"] <= -50:
+
+        strengths.append(
+            "The stock has experienced a very large "
+            "decline from its 52-week high."
+        )
+
+    elif row["Drawdown"] <= -30:
+
+        strengths.append(
+            "The stock has experienced a large decline "
+            "from its 52-week high."
+        )
+
+    elif row["Drawdown"] <= -20:
+
+        strengths.append(
+            "The stock has experienced a significant "
+            "decline from its 52-week high."
+        )
+
+
+    if row["RSI"] <= 30:
+
+        strengths.append(
+            "The RSI indicates strongly oversold conditions."
+        )
+
+    elif row["RSI"] <= 40:
+
+        strengths.append(
+            "The RSI indicates that selling has pushed "
+            "the stock toward oversold territory."
+        )
+
+
+    if row["1M"] <= -20:
+
+        strengths.append(
+            "The stock has suffered a significant "
+            "one-month decline."
+        )
+
+    elif row["1M"] <= -10:
+
+        strengths.append(
+            "The stock has experienced notable "
+            "one-month selling pressure."
+        )
+
+
+    if row["VolRatio"] >= 2:
+
+        strengths.append(
+            "Trading volume is substantially above "
+            "its recent average."
+        )
+
+    elif row["VolRatio"] >= 1.5:
+
+        strengths.append(
+            "Trading volume is above its recent average."
+        )
+
+
+    if row["5D"] >= 0:
+
+        strengths.append(
+            "Recent five-day price action suggests "
+            "some stabilization."
+        )
+
+    elif row["5D"] >= -2:
+
+        strengths.append(
+            "Recent selling pressure appears to be slowing."
+        )
+
+
+    # ------------------------------------------------------
+    # FUNDAMENTAL STRENGTHS
+    # ------------------------------------------------------
+
+    revenue_growth = row["RevenueGrowth"]
+
+    earnings_growth = row["EarningsGrowth"]
+
+    fcf = row["FCF"]
+
+    fundamental_score = row["FundamentalScore"]
+
+
+    if (
+        pd.notna(revenue_growth)
+        and revenue_growth > 0
+    ):
+
+        strengths.append(
+            f"Revenue is growing "
+            f"({revenue_growth:.1f}% year-over-year)."
+        )
+
+    elif (
+        pd.notna(revenue_growth)
+        and revenue_growth < 0
+    ):
+
+        risks.append(
+            f"Revenue is declining "
+            f"({revenue_growth:.1f}% year-over-year)."
+        )
+
+
+    if (
+        pd.notna(earnings_growth)
+        and earnings_growth > 0
+    ):
+
+        strengths.append(
+            f"Earnings are growing "
+            f"({earnings_growth:.1f}% year-over-year)."
+        )
+
+    elif (
+        pd.notna(earnings_growth)
+        and earnings_growth < 0
+    ):
+
+        risks.append(
+            f"Earnings are declining "
+            f"({earnings_growth:.1f}% year-over-year)."
+        )
+
+
+    if (
+        pd.notna(fcf)
+        and fcf > 0
+    ):
+
+        strengths.append(
+            "The company generated positive free cash flow."
+        )
+
+    elif (
+        pd.notna(fcf)
+        and fcf < 0
+    ):
+
+        risks.append(
+            "The company reported negative free cash flow."
+        )
+
+
+    # ------------------------------------------------------
+    # FUNDAMENTAL RISK
+    # ------------------------------------------------------
+
+    fundamental_risk_value = row["FundamentalRisk"]
+
+    if fundamental_risk_value != "HEALTHY / ACCEPTABLE":
+
+        risks.append(
+            f"Fundamental assessment: "
+            f"{fundamental_risk_value}."
+        )
+
+
+    # ------------------------------------------------------
+    # GENERAL RISK
+    # ------------------------------------------------------
+
+    if row["Drawdown"] <= -50:
+
+        risks.append(
+            "The very large drawdown also means the market "
+            "may be pricing in significant business or "
+            "valuation risks."
+        )
+
+    if row["RSI"] > 45:
+
+        risks.append(
+            "The stock is not currently showing strongly "
+            "oversold conditions."
+        )
+
+
+    if len(strengths) == 0:
+
+        strengths.append(
+            "The candidate achieved a strong combined "
+            "score relative to the Nasdaq-100."
+        )
+
+
+    if len(risks) == 0:
+
+        risks.append(
+            "No major warning was identified by the "
+            "current screening model."
+        )
+
+
+    # ------------------------------------------------------
+    # OVERALL ASSESSMENT
+    # ------------------------------------------------------
+
+    final_score = row["FinalScore"]
+
+    if final_score >= 80:
+
+        assessment = (
+            "STRONG SCREENING CANDIDATE"
+        )
+
+    elif final_score >= 70:
+
+        assessment = (
+            "GOOD SCREENING CANDIDATE"
+        )
+
+    elif final_score >= 60:
+
+        assessment = (
+            "MODERATE SCREENING CANDIDATE"
+        )
+
+    else:
+
+        assessment = (
+            "WEAK SCREENING CANDIDATE"
+        )
+
+
+    # ------------------------------------------------------
+    # CREATE EXPLANATION
+    # ------------------------------------------------------
+
+    explanation = []
+
+    explanation.append(
+        f"{row['Ticker']} — {assessment}"
+    )
+
+    explanation.append(
+        f"Final Crash Buying Score: "
+        f"{final_score:.1f}/100"
+    )
+
+    explanation.append("")
+
+    explanation.append(
+        "Why selected:"
+    )
+
+    for item in strengths:
+
+        explanation.append(
+            f"• {item}"
+        )
+
+
+    explanation.append("")
+
+    explanation.append(
+        "Risks / things to watch:"
+    )
+
+    for item in risks:
+
+        explanation.append(
+            f"• {item}"
+        )
+
+
+    return "\n".join(explanation)
+
+
+# ----------------------------------------------------------
+# GENERATE EXPLANATIONS FOR FINAL TOP 3
+# ----------------------------------------------------------
+
+candidate_explanations = {}
+
+
+for rank, (_, row) in enumerate(
+    final_top3.iterrows(),
+    start=1
+):
+
+    explanation = create_candidate_explanation(
+        row
+    )
+
+    candidate_explanations[
+        row["Ticker"]
+    ] = explanation
+
+    print()
+    print("=" * 80)
+    print(f"RANK #{rank}")
+    print("=" * 80)
+
+    print()
+    print(explanation)
+
+
+print()
+print("=" * 80)
+print("STAGE 8 COMPLETED")
+print("=" * 80)
