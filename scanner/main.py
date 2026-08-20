@@ -1821,3 +1821,362 @@ print()
 print("=" * 80)
 print("STAGE 8 COMPLETED")
 print("=" * 80)
+
+# ==========================================================
+# STAGE 9 - EMAIL ALERT GENERATION
+# ==========================================================
+
+print()
+print("=" * 80)
+print("STAGE 9 - EMAIL ALERT")
+print("=" * 80)
+
+scan_date = datetime.now().strftime("%Y-%m-%d")
+
+email_lines = []
+
+email_lines.append("NASDAQ-100 CRASH BUYING ALERT")
+email_lines.append("=" * 60)
+email_lines.append("")
+email_lines.append(f"Scan date: {scan_date}")
+email_lines.append("")
+
+
+# ----------------------------------------------------------
+# USE FINAL TOP 3 FROM STAGE 7
+# ----------------------------------------------------------
+
+if len(final_top3) > 0:
+
+    email_lines.append(
+        "STRONG CRASH-BUYING OPPORTUNITY FOUND"
+    )
+
+    email_lines.append("")
+
+    email_lines.append(
+        "Top 3 candidates from the Nasdaq-100:"
+    )
+
+    email_lines.append("")
+
+
+    # ------------------------------------------------------
+    # CREATE EMAIL FOR EACH TOP 3 CANDIDATE
+    # ------------------------------------------------------
+
+    for rank, (_, row) in enumerate(
+        final_top3.iterrows(),
+        start=1
+    ):
+
+        ticker = row["Ticker"]
+
+        email_lines.append(
+            f"#{rank} {ticker}"
+        )
+
+        email_lines.append(
+            f"Final Crash Buying Score: "
+            f"{row['FinalScore']:.1f}/100"
+        )
+
+        email_lines.append(
+            f"Technical Score: "
+            f"{row['Score']:.0f}/100"
+        )
+
+        email_lines.append(
+            f"Fundamental Score: "
+            f"{row['FundamentalScore']:.0f}/40"
+        )
+
+        email_lines.append(
+            f"Current Price: "
+            f"${row['Price']:.2f}"
+        )
+
+        email_lines.append(
+            f"52W Drawdown: "
+            f"{row['Drawdown']:.2f}%"
+        )
+
+        email_lines.append(
+            f"1 Month: "
+            f"{row['1M']:.2f}%"
+        )
+
+        email_lines.append(
+            f"3 Months: "
+            f"{row['3M']:.2f}%"
+        )
+
+        email_lines.append(
+            f"RSI: "
+            f"{row['RSI']:.1f}"
+        )
+
+        email_lines.append(
+            f"Volume vs 20D Average: "
+            f"{row['VolRatio']:.2f}x"
+        )
+
+        email_lines.append(
+            f"Revenue Growth: "
+            + (
+                "N/A"
+                if pd.isna(row["RevenueGrowth"])
+                else f"{row['RevenueGrowth']:.1f}%"
+            )
+        )
+
+        email_lines.append(
+            f"Earnings Growth: "
+            + (
+                "N/A"
+                if pd.isna(row["EarningsGrowth"])
+                else f"{row['EarningsGrowth']:.1f}%"
+            )
+        )
+
+        email_lines.append(
+            f"Fundamental Assessment: "
+            f"{row['FundamentalRisk']}"
+        )
+
+        email_lines.append("")
+
+
+        # --------------------------------------------------
+        # WHY SELECTED
+        # --------------------------------------------------
+
+        email_lines.append(
+            "Why selected:"
+        )
+
+        if row["Drawdown"] <= -30:
+
+            email_lines.append(
+                "  - Large decline from the 52-week high"
+            )
+
+        elif row["Drawdown"] <= -20:
+
+            email_lines.append(
+                "  - Significant decline from the 52-week high"
+            )
+
+
+        if row["RSI"] <= 30:
+
+            email_lines.append(
+                "  - Strongly oversold RSI"
+            )
+
+        elif row["RSI"] <= 40:
+
+            email_lines.append(
+                "  - RSI indicates oversold conditions"
+            )
+
+
+        if row["1M"] <= -15:
+
+            email_lines.append(
+                "  - Significant 1-month decline"
+            )
+
+
+        if row["3M"] <= -20:
+
+            email_lines.append(
+                "  - Significant 3-month decline"
+            )
+
+
+        if row["VolRatio"] >= 2:
+
+            email_lines.append(
+                "  - Trading volume is substantially "
+                "above its 20-day average"
+            )
+
+        elif row["VolRatio"] >= 1.5:
+
+            email_lines.append(
+                "  - Trading volume is above its "
+                "20-day average"
+            )
+
+
+        if (
+            pd.notna(row["RevenueGrowth"])
+            and row["RevenueGrowth"] > 0
+        ):
+
+            email_lines.append(
+                "  - Revenue is still growing"
+            )
+
+
+        if (
+            pd.notna(row["EarningsGrowth"])
+            and row["EarningsGrowth"] > 0
+        ):
+
+            email_lines.append(
+                "  - Earnings are still growing"
+            )
+
+
+        if (
+            pd.notna(row["FCF"])
+            and row["FCF"] > 0
+        ):
+
+            email_lines.append(
+                "  - Positive free cash flow"
+            )
+
+
+        # --------------------------------------------------
+        # RISKS
+        # --------------------------------------------------
+
+        email_lines.append("")
+
+        email_lines.append(
+            "Risks / things to watch:"
+        )
+
+        if row["FundamentalRisk"] != "HEALTHY / ACCEPTABLE":
+
+            email_lines.append(
+                f"  - {row['FundamentalRisk']}"
+            )
+
+        if (
+            pd.notna(row["RevenueGrowth"])
+            and row["RevenueGrowth"] < 0
+        ):
+
+            email_lines.append(
+                "  - Revenue is declining"
+            )
+
+        if (
+            pd.notna(row["EarningsGrowth"])
+            and row["EarningsGrowth"] < 0
+        ):
+
+            email_lines.append(
+                "  - Earnings are declining"
+            )
+
+        if (
+            pd.notna(row["FCF"])
+            and row["FCF"] < 0
+        ):
+
+            email_lines.append(
+                "  - Free cash flow is negative"
+            )
+
+        if row["Drawdown"] <= -50:
+
+            email_lines.append(
+                "  - Very large drawdown may indicate "
+                "significant market or business concerns"
+            )
+
+
+        email_lines.append("")
+
+        email_lines.append(
+            "-" * 60
+        )
+
+        email_lines.append("")
+
+
+else:
+
+    email_lines.append(
+        "NO STRONG CRASH-BUYING OPPORTUNITY FOUND"
+    )
+
+    email_lines.append("")
+
+    email_lines.append(
+        "No Nasdaq-100 company produced a qualifying "
+        "final crash-buying candidate today."
+    )
+
+    email_lines.append("")
+
+
+# ----------------------------------------------------------
+# DISCLAIMER
+# ----------------------------------------------------------
+
+email_lines.append(
+    "IMPORTANT:"
+)
+
+email_lines.append(
+    "This is an automated screening system and "
+    "not financial advice."
+)
+
+email_lines.append(
+    "A high score does not guarantee that the stock "
+    "will recover."
+)
+
+email_lines.append(
+    "Always perform your own research before making "
+    "an investment decision."
+)
+
+
+# ----------------------------------------------------------
+# CREATE FINAL EMAIL
+# ----------------------------------------------------------
+
+email_subject = (
+    "NASDAQ-100 Crash Buying Alert - "
+    + scan_date
+)
+
+email_body = "\n".join(
+    email_lines
+)
+
+
+# ----------------------------------------------------------
+# EMAIL PREVIEW
+# ----------------------------------------------------------
+
+print()
+print("=" * 80)
+print("EMAIL ALERT PREVIEW")
+print("=" * 80)
+
+print()
+
+print(email_body)
+
+print()
+
+print("=" * 80)
+print("EMAIL SUBJECT")
+print("=" * 80)
+
+print(email_subject)
+
+print()
+
+print("=" * 80)
+print("STAGE 9 EMAIL GENERATION COMPLETED")
+print("=" * 80)
