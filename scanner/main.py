@@ -1,7 +1,49 @@
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
+import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
+def send_email_alert(subject, body):
+
+    email_username = os.environ.get("EMAIL_USERNAME")
+    email_password = os.environ.get("EMAIL_PASSWORD")
+
+    if not email_username or not email_password:
+        print("EMAIL ERROR: Email credentials not found.")
+        return
+
+    message = MIMEMultipart()
+    message["From"] = email_username
+    message["To"] = email_username
+    message["Subject"] = subject
+
+    message.attach(MIMEText(body, "plain"))
+
+    try:
+
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+
+            server.starttls()
+
+            server.login(
+                email_username,
+                email_password
+            )
+
+            server.sendmail(
+                email_username,
+                email_username,
+                message.as_string()
+            )
+
+        print("EMAIL SENT SUCCESSFULLY")
+
+    except Exception as e:
+
+        print("EMAIL ERROR:", e)
 
 NASDAQ_100 = [
     "AAPL", "ABNB", "ADBE", "ADI", "ADP", "ADSK", "AEP",
