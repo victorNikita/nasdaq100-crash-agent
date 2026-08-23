@@ -45,6 +45,116 @@ def send_email_alert(subject, body):
 
         print("EMAIL ERROR:", e)
         return False
+
+
+def get_llm_review(candidate_rows, qualified_count):
+    """
+    Ask Claude to sanity-check today's scan before it goes out in
+    an email. This is a second, independent pass over the numbers
+    the scoring model already produced - it is not a replacement
+    for the scoring model, and it does not make a buy/sell call.
+
+    Returns a plain-text review, or None if the review could not
+    be generated (missing API key, network error, etc). A failed
+    review should never block the email from being sent.
+    """
+
+    import json
+    import urllib.request
+    import urllib.error
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    if not api_key:
+        print("LLM REVIEW: ANTHROPIC_API_KEY not set, skipping.")
+        return None
+
+    if not candidate_rows:
+        prompt = (
+            "A Nasdaq-100 technical + fundamental screening model "
+            "ran today and found no candidates that passed its "
+            "opportunity filter. In 2-3 sentences, tell the "
+            "reader this is a normal, unremarkable outcome (not "
+            "every day produces a signal) and remind them this is "
+            "a screening tool, not investment advice."
+        )
+    else:
+        lines = []
+        for row in candidate_rows:
+            lines.append(
+                f"- {row['Ticker']}: FinalScore="
+                f"{row['FinalScore']:.1f}/100, "
+                f"TechnicalScore={row['Score']:.0f}/100, "
+                f"FundamentalScore={row['FundamentalScore']:.0f}/40, "
+                f"Drawdown={row['Drawdown']:.2f}%, RSI={row['RSI']:.1f}, "
+                f"1M={row['1M']:.2f}%, 3M={row['3M']:.2f}%, "
+                f"RevenueGrowth={row['RevenueGrowth']}, "
+                f"EarningsGrowth={row['EarningsGrowth']}, "
+                f"FundamentalRisk={row['FundamentalRisk']}"
+            )
+        candidates_text = "\n".join(lines)
+
+        prompt = (
+            "You are reviewing the output of a rules-based "
+            "Nasdaq-100 'crash buying' screener (not making a "
+            "trade decision). It combines technical factors "
+            "(52-week drawdown, RSI, recent returns, volume) with "
+            "basic fundamentals (revenue/earnings growth, free "
+            "cash flow, balance sheet) into a score out of 100.\n\n"
+            f"{qualified_count} of the top 3 candidates passed the "
+            "screener's own opportunity filter today. Here is "
+            f"today's top 3:\n\n{candidates_text}\n\n"
+            "In 4-6 sentences: (1) note anything in this specific "
+            "data that looks inconsistent or worth double-checking "
+            "before anyone acts on it (e.g. a large drawdown paired "
+            "with weak fundamentals, or a score driven almost "
+            "entirely by one factor), and (2) flag any candidate "
+            "that looks more like 'still falling' than 'stabilizing "
+            "after a crash'. Be specific to the numbers given, not "
+            "generic. Do not tell the reader to buy or avoid any "
+            "ticker - this is a second opinion on the screen itself, "
+            "not trading advice."
+        )
+
+    payload = json.dumps({
+        "model": "claude-sonnet-5",
+        "max_tokens": 500,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }).encode("utf-8")
+
+    request = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01"
+        }
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            body = json.loads(response.read().decode("utf-8"))
+
+        review_text = "".join(
+            block.get("text", "")
+            for block in body.get("content", [])
+            if block.get("type") == "text"
+        ).strip()
+
+        return review_text or None
+
+    except urllib.error.HTTPError as e:
+        print(f"LLM REVIEW ERROR: HTTP {e.code} - {e.read()}")
+        return None
+    except Exception as e:
+        print(f"LLM REVIEW ERROR: {e}")
+        return None
+
+
 NASDAQ_100 = [
     "AAPL", "ABNB", "ADBE", "ADI", "ADP", "ADSK", "AEP",
     "ALNY", "AMAT", "AMD", "AMGN", "AMZN", "APP", "ARM",
@@ -586,7 +696,7 @@ for rank, (_, row) in enumerate(
     reasons = generate_reasons(row)
 
     for reason in reasons:
-        print(f"  ✓ {reason}")
+        print(f"  âœ“ {reason}")
 
 
 # ----------------------------------------------------------
@@ -630,7 +740,7 @@ print()
 
 if len(opportunities) > 0:
 
-    print("🟢 STRONG CRASH-BUYING OPPORTUNITY FOUND")
+    print("ðŸŸ¢ STRONG CRASH-BUYING OPPORTUNITY FOUND")
 
     print()
     print(
@@ -672,7 +782,7 @@ if len(opportunities) > 0:
 
 else:
 
-    print("⚪ NO STRONG CRASH-BUYING OPPORTUNITY TODAY")
+    print("âšª NO STRONG CRASH-BUYING OPPORTUNITY TODAY")
 
     print()
     print(
@@ -1793,7 +1903,7 @@ def create_candidate_explanation(row):
     explanation = []
 
     explanation.append(
-        f"{row['Ticker']} — {assessment}"
+        f"{row['Ticker']} â€” {assessment}"
     )
 
     explanation.append(
@@ -1810,7 +1920,7 @@ def create_candidate_explanation(row):
     for item in strengths:
 
         explanation.append(
-            f"• {item}"
+            f"â€¢ {item}"
         )
 
 
@@ -1823,7 +1933,7 @@ def create_candidate_explanation(row):
     for item in risks:
 
         explanation.append(
-            f"• {item}"
+            f"â€¢ {item}"
         )
 
 
@@ -1888,10 +1998,30 @@ email_lines.append("")
 # USE FINAL TOP 3 FROM STAGE 7
 # ----------------------------------------------------------
 
-if len(final_top3) > 0:
+# Bug fix: this used to check `len(final_top3) > 0`, which is
+# almost always true since head(3) returns rows even when none of
+# them are actually strong opportunities. That made the email
+# claim "STRONG CRASH-BUYING OPPORTUNITY FOUND" every single day,
+# regardless of the Stage 5 filter thresholds (MIN_SCORE,
+# MIN_DRAWDOWN). We now re-apply the same opportunity filter to
+# the final (technical + fundamental) top 3 before deciding what
+# the email should say.
+qualified_final = [
+    row for _, row in final_top3.iterrows()
+    if is_strong_opportunity(row)
+]
+
+if len(qualified_final) > 0:
 
     email_lines.append(
         "STRONG CRASH-BUYING OPPORTUNITY FOUND"
+    )
+
+    email_lines.append("")
+
+    email_lines.append(
+        f"{len(qualified_final)} of the Top 3 candidates passed "
+        "the opportunity filter."
     )
 
     email_lines.append("")
@@ -1914,8 +2044,12 @@ if len(final_top3) > 0:
 
         ticker = row["Ticker"]
 
+        status = (
+            "PASS" if is_strong_opportunity(row) else "WATCH"
+        )
+
         email_lines.append(
-            f"#{rank} {ticker}"
+            f"#{rank} {ticker} - {status}"
         )
 
         email_lines.append(
@@ -2159,6 +2293,45 @@ else:
 
 
 # ----------------------------------------------------------
+# STAGE 10 - LLM REVIEW OF TODAY'S SCAN
+# ----------------------------------------------------------
+
+print()
+print("=" * 80)
+print("STAGE 10 - LLM REVIEW")
+print("=" * 80)
+
+llm_review_candidates = (
+    [row for _, row in final_top3.iterrows()]
+    if len(qualified_final) > 0
+    else []
+)
+
+llm_review = get_llm_review(
+    llm_review_candidates,
+    len(qualified_final)
+)
+
+if llm_review:
+
+    print()
+    print(llm_review)
+
+    email_lines.append(
+        "AI REVIEW OF TODAY'S SCAN"
+        " (model-generated second opinion, not advice):"
+    )
+    email_lines.append("")
+    email_lines.append(llm_review)
+    email_lines.append("")
+
+else:
+    print()
+    print("LLM REVIEW: not available for this run - continuing "
+          "without it.")
+
+
+# ----------------------------------------------------------
 # DISCLAIMER
 # ----------------------------------------------------------
 
@@ -2246,3 +2419,4 @@ else:
 
     print()
     print("NASDAQ-100 CRASH BUYING ALERT EMAIL FAILED")
+
