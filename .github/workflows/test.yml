@@ -25,5 +25,4 @@ jobs:
       env:
           EMAIL_USERNAME: ${{secrets.EMAIL_USERNAME}}
           EMAIL_PASSWORD: ${{secrets.EMAIL_PASSWORD}}
-          run: python scanner/main.py
-
+      run: python scanner/main.py
