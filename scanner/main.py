@@ -13,7 +13,7 @@ def send_email_alert(subject, body):
 
     if not email_username or not email_password:
         print("EMAIL ERROR: Email credentials not found.")
-        return
+        return False
 
     message = MIMEMultipart()
     message["From"] = email_username
@@ -40,11 +40,11 @@ def send_email_alert(subject, body):
             )
 
         print("EMAIL SENT SUCCESSFULLY")
-
+        return True
     except Exception as e:
 
         print("EMAIL ERROR:", e)
-
+        return False
 NASDAQ_100 = [
     "AAPL", "ABNB", "ADBE", "ADI", "ADP", "ADSK", "AEP",
     "ALNY", "AMAT", "AMD", "AMGN", "AMZN", "APP", "ARM",
@@ -2222,3 +2222,27 @@ print()
 print("=" * 80)
 print("STAGE 9 EMAIL GENERATION COMPLETED")
 print("=" * 80)
+
+# ==========================================================
+# STAGE 10C - SEND EMAIL ALERT
+# ==========================================================
+
+print()
+print("=" * 80)
+print("STAGE 10C - SENDING EMAIL")
+print("=" * 80)
+
+email_sent = send_email_alert(
+    email_subject,
+    email_body
+)
+
+if email_sent:
+
+    print()
+    print("NASDAQ-100 CRASH BUYING ALERT EMAIL SENT SUCCESSFULLY")
+
+else:
+
+    print()
+    print("NASDAQ-100 CRASH BUYING ALERT EMAIL FAILED")
